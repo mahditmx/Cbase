@@ -121,7 +121,7 @@ def progressbar(byte, file_size, des,mode='up'):
 
     progressbar_color = color.red
     if persent > 25 :
-        progressbar_color = color.yellow
+        progressbar_color = color.blue
     if persent > 65:
         progressbar_color = color.green
 
@@ -137,10 +137,10 @@ def progressbar(byte, file_size, des,mode='up'):
     prev_time = current_time
 
     # Your callback function
-    v_progress_bar = "-" * int(persent/2) + " " * (int(100/2) - int(persent/2))
+    v_progress_bar = "━" * int(persent/2) + color.black + ("━" * (int(100/2) - int(persent/2))) +  color.reset
 
     display_persent = "{:.2f}".format(persent)
-    print(f"\r{des}: {progressbar_color}{display_persent}{color.reset}{color.cyan} %{color.reset} |{progressbar_color}{v_progress_bar}{color.reset}| {color.blue}{format_size(byte, False)}{color.cyan}/{color.magenta}{format_size(file_size)}{color.reset} [{color.cyan}Speed{color.reset}: {format_size(download_speed / 1000)}/s]       ", end=end) 
+    print(f"\r{des} {progressbar_color}{display_persent}{color.reset}{color.cyan} %{color.reset} {progressbar_color}{v_progress_bar}{color.reset} {color.blue}{format_size(byte, False)}{color.cyan}/{color.magenta}{format_size(file_size)}{color.reset} [{color.cyan}Speed{color.reset}: {format_size(download_speed / 1000)}/s]       ", end=end) 
 
 
 
