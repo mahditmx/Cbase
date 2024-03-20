@@ -2,12 +2,9 @@
 
 
 import requests
-import json
 import argparse
 import os 
 from ZDbyte import Zjson , simpleApi
-from tqdm import tqdm
-import sys 
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 from progress_bar import *
 import hashlib
@@ -20,7 +17,7 @@ URL = "https://cliserver.pythonanywhere.com/api"
 
 
 
-BUILD = 16
+BUILD = 17
 
 import requests
 
@@ -410,6 +407,25 @@ def main():
         if option == None:
             print("usage:")
             return
+
+        if args.f == False:
+            file_hash = get_file_hash(option)
+            x = file_info('mahdi','123',file_hash,mode='hash')
+            if x['success'] == False:
+                q = input(f"{color.red}Fail{color.reset} to get file exsist info from server [Y/n] ? ")
+                if q.strip().lower() not in ['y',"Y","yes","yup"]:
+                    print(f'{color.red}upload cancel by user.{color.reset}')
+                    return
+
+                # return
+            if len(x['data']['ls']) != 0:
+                q = input(f"{color.red}{len(x['data']['ls'])}{color.reset} same file {color.yellow}exsist{color.reset} on your space in the server are you want to upload one more ? [Y/n] ")
+                if q.strip().lower() not in ['y',"Y","yes","yup"]:
+                    print(f'{color.red}upload cancel by user.{color.reset}')
+                    return
+
+
+
 
         r = file_info(usr,password,option)
 
