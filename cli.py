@@ -10,14 +10,14 @@ from progress_bar import *
 import hashlib
 
 
-# URL = "http://127.0.0.1:5000/api"
-URL = "https://cliserver.pythonanywhere.com/api"
+URL = "http://127.0.0.1:5000/api"
+# URL = "https://cliserver.pythonanywhere.com/api"
 
 
 
 
 
-BUILD = 17
+BUILD = 18
 
 import requests
 
@@ -53,10 +53,10 @@ def login(username , password):
 
 
 
-def file_info(username , password,file_name,mode= "single",opt=[]):
+def file_info(username , token,file_name,mode= "single",opt=[]):
     url = URL+"/info"
 
-    data = {"username": username, 'password' : password, "file_name" : file_name , "mode" : mode}
+    data = {"username": username, 'token' : token, "file_name" : file_name , "mode" : mode}
     headers = {'Content-Type': 'application/json'}
 
     r = requests.post(url , json=data, headers=headers)
@@ -97,7 +97,7 @@ def get_file_hash(file_path):
 
 
 
-def upload(username,password,path): 
+def upload(username,token,path): 
     print(f"Uploading {path}...")
     url = URL+"/upload"
 
@@ -115,7 +115,7 @@ def upload(username,password,path):
 
         return
     e = MultipartEncoder(
-        fields={'username': username, 'password': password,
+        fields={'username': username, 'token': token,
                 'file': (file_path, open(file_path, 'rb'), 'text/plain')} # in file_path first need replace whit file_name ! *IMPORTANT BUG 
         )
     m = MultipartEncoderMonitor(e, lambda monitor: progressbar(monitor.bytes_read, file_size,f"\t"))
@@ -149,14 +149,14 @@ def upload(username,password,path):
     show_cursor()
 
 
-def download(username, password, path):
+def download(username, token, path):
     url = URL + "/download"
-    data = {"username": username, 'password': password, "filename": path}
+    data = {"username": username, 'token': token, "filename": path}
 
     print(f"geting {color.magenta}{path}{color.reset} info...")
 
     file_hash = None
-    info = file_info(username,password,path)
+    info = file_info(username,token,path)
     if info == False:
         q = input(f"Failed to get file info countine to download [Y/n] ? ")
         if q.strip().lower() not in ['y',"Y","yes","yup"]:
@@ -319,10 +319,10 @@ def get_(path):
 
 
 
-def index(username , password,path,f_name,force):
+def index(username , token,path,f_name,force):
     url = URL+"/pub"
 
-    data = {"username": username, 'password' : password , "file_name" : path , "f_name" : f_name , "force" : force}
+    data = {"username": username, 'token' : token , "file_name" : path , "f_name" : f_name , "force" : force}
     headers = {'Content-Type': 'application/json'}
 
     r = requests.post(url , json=data, headers=headers)
@@ -386,7 +386,7 @@ def main():
         password = input('password : ')
         r = login(usr,password)
         if r['success'] == True:
-            json_usr.append({"username" : usr , "password" : password})
+            json_usr.append({"username" : usr , "token" : r['data']['token']})
 
 
     if command == "signup":
@@ -394,7 +394,8 @@ def main():
         password = input('password : ')
         r = create_account(usr,password)
         if r['success'] == True:
-            json_usr.append({"username" : usr , "password" : password})
+            json_usr.append({"username" : usr , "token" : r['data']['token']})
+
 
     if command == "upload":
 
@@ -402,7 +403,7 @@ def main():
         if "username" not in usr_data:
             print("please login/signup")
         usr = usr_data['username']
-        password = usr_data['password']
+        token = usr_data['token']
 
         if option == None:
             print("usage:")
@@ -410,7 +411,7 @@ def main():
 
         if args.f == False:
             file_hash = get_file_hash(option)
-            x = file_info('mahdi','123',file_hash,mode='hash')
+            x = file_info(usr,token,file_hash,mode='hash')
             if x['success'] == False:
                 q = input(f"{color.red}Fail{color.reset} to get file exsist info from server [Y/n] ? ")
                 if q.strip().lower() not in ['y',"Y","yes","yup"]:
@@ -427,7 +428,7 @@ def main():
 
 
 
-        r = file_info(usr,password,option)
+        r = file_info(usr,token,option)
 
         if r['success'] == True:
             if r['data']['exsist'] == True:
@@ -442,7 +443,7 @@ def main():
             print("uploading cancel")
             return	
 
-        r = upload(usr,password,option)
+        r = upload(usr,token,option)
 
 
 
@@ -452,12 +453,12 @@ def main():
         if "username" not in usr_data:
             print("please login/signup")
         usr = usr_data['username']
-        password = usr_data['password']
+        token = usr_data['token']
 
         if option == None:
             print("usage:")
             return
-        r = download(usr,password,option)
+        r = download(usr,token,option)
 
     if command in ["info",'ls']:
 
@@ -466,10 +467,11 @@ def main():
             print("please login/signup")
             return
         usr = usr_data['username']
-        password = usr_data['password']
+        token = usr_data['token']
+
 
         if option == None:
-            info = file_info(usr,password,'','all')
+            info = file_info(usr,token,'','all')
 
 
 
@@ -511,7 +513,7 @@ def main():
 
 
 
-        info = file_info(usr,password,option)
+        info = file_info(usr,token,option)
         file_hash = info['data']['hash']
         if args.i == False:
             file_hash = ""
@@ -544,13 +546,14 @@ def main():
             print("please login/signup")
             return
         usr = usr_data['username']
-        password = usr_data['password']
+        token = usr_data['token']
+
 
         f_name = input("friendly name : ")
         force = False
         if args.f :
             force = True
-        r = index(usr,password,option,f_name,force)
+        r = index(usr,token,option,f_name,force)
         print(f"{color.yellow}server replay {color.reset}: {r['message']}")
         if r['success'] == False:
             if r['data']['per'] :
@@ -574,7 +577,7 @@ def main():
             print("please login/signup")
             return
         usr = usr_data['username']
-        password = usr_data['password']
+        token = usr_data['token']
 
         if os.path.exists(option) == False: 
             print(f"{color.red}{option}{color.reset} was not exsist.")
@@ -582,7 +585,7 @@ def main():
         option = get_file_hash(option)
 
 
-        info = file_info(usr,password,option,mode='hash')
+        info = file_info(usr,token,option,mode='hash')
         if info['success'] == True:
             files_list = info['data']['ls']
 
@@ -619,9 +622,13 @@ def main():
         else:
             print(f"{color.red}ERROR{color.reset} Fail to get files info.")
 
+    if command in ['logout']:
+        data = json_usr.read()
+        data['token'] = None
+        data['username'] = None
 
-
-
+        json_usr.append(data)
+        print(f"you logout {color.red}only{color.reset} from this device \nuse {color.magenta}logout-all{color.reset} (when logined) for logout from all device")
 
 
 
