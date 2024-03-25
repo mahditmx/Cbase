@@ -425,6 +425,25 @@ def index(username , token,path,f_name,force):
     return r.json()
 
 
+
+def rm_file(username , token,path):
+    url = URL+"/rm_file"
+
+    data = {"username": username, 'token' : token , "file_name" : path }
+    headers = {'Content-Type': 'application/json'}
+
+    r = requests.post(url , json=data, headers=headers)
+    try:
+        r.json()
+    except:
+        print(r.status_code+" ERROR RM FILE")
+    return r.json()
+
+
+
+
+
+
 def check_for_update(startup = False):
     api = simpleApi()
     api.login('qQYN9t4uinbbVrMozztDr2NMOMDCaUPpbRnbflIbHvODeEsoPq2NOVeTt3n9UWl4','mahdi')
@@ -773,10 +792,31 @@ def main():
         json_usr.append(data)
         print(f"you logout {color.red}only{color.reset} from this device \nuse {color.magenta}logout-all{color.reset} (when logined) for logout from all device")
 
+    if command in ['rm']:
+
+        if option == None:
+            print("usage:")
+            return 
+        
+        usr_data  = json_usr.read()
+        if "username" not in usr_data:
+            print("please login/signup")
+            return
+        usr = usr_data['username']
+        token = usr_data['token']
+
+        if not args.f: 
+            q = input(f"are you shure to delete {color.cyan}{option}{color.reset} ? [Y/n] ")
+            if q.strip().lower() not in ['y',"Y","yes","yup"]:
+                print(f'{color.red}remove cancel by user.{color.reset}')
+                return
+
+        r = rm_file(usr,token,option)
+        if 'success' in r:
+            print(r['message'])
 
 
 if __name__ == '__main__':
-    # check_for_update(startup = True)
     important = auto_check_update()
     if important : 
         exit()
