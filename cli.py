@@ -4,10 +4,14 @@
 import requests
 import argparse
 import os 
-from ZDbyte import Zjson , simpleApi
+from ZDbyte import Zjson , simpleApi , log
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 from progress_bar import *
 import hashlib
+import magic
+import tempfile
+import zipfile
+
 
 
 URL = "http://127.0.0.1:5000/api"
@@ -17,7 +21,7 @@ URL = "http://127.0.0.1:5000/api"
 
 
 
-BUILD = 18
+BUILD = 19
 
 import requests
 
@@ -95,6 +99,25 @@ def get_file_hash(file_path):
     
     return file_hash_hexdigest
 
+def check_file_extension(file_path):
+    allowed_extensions = {'zip', 'rar', 'gz'}
+    _, extension = os.path.splitext(file_path)
+    extension = extension.lower()[1:]  # Remove the leading dot
+    if extension in allowed_extensions:
+        return True
+    return False
+
+def check_media_file_content(file_path):
+    allowed_media_types = {'video/', 'audio/', 'image/'}
+    with open(file_path, 'rb') as file:
+        file_type = magic.Magic(mime=True).from_buffer(file.read(1024))
+        if any(file_type.startswith(media_type) for media_type in allowed_media_types):
+            return True
+    return False
+def zip_file(file_path, output_path):
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(file_path, arcname=os.path.basename(file_path))
+
 
 
 def upload(username,token,path): 
@@ -102,6 +125,40 @@ def upload(username,token,path):
     url = URL+"/upload"
 
     file_path = path
+
+    if os.path.exists(file_path) == False:
+        print(f"{file_path} not {color.red}exists{color.reset} to upload")
+        return
+
+    tmp = False
+    filename = os.path.basename(file_path)
+    file_name = os.path.basename(file_path)
+    org_hash = get_file_hash(file_path)
+
+
+    if not check_file_extension(file_path):
+        if not check_media_file_content(file_path):
+            tmp = True
+            print(f"Ziping {file_path}...")
+            temp_dir = tempfile.mkdtemp()
+            
+            dot_index = file_name.rfind('.')
+            if dot_index != -1:
+                output =  file_name[:dot_index] + '.zip'
+            else:
+                output = file_name + '.zip'
+
+            out_path = os.path.join(temp_dir,output)
+            zip_file(file_path,out_path)
+            if os.path.exists(out_path):
+                file_path = out_path
+                file_name = output
+            else:
+                print(f"{color.red}fail to zip file{color.reset}")
+
+
+
+
 
     set_defualt()
     hide_cursor()
@@ -115,8 +172,8 @@ def upload(username,token,path):
 
         return
     e = MultipartEncoder(
-        fields={'username': username, 'token': token,
-                'file': (file_path, open(file_path, 'rb'), 'text/plain')} # in file_path first need replace whit file_name ! *IMPORTANT BUG 
+        fields={'username': username, 'token': token, 'zip' : str(tmp) , "filename" : filename, "org-hash" : org_hash,
+                'file': (file_name, open(file_path, 'rb'), 'text/plain')} 
         )
     m = MultipartEncoderMonitor(e, lambda monitor: progressbar(monitor.bytes_read, file_size,f"\t"))
 
@@ -132,8 +189,12 @@ def upload(username,token,path):
         print("file uploaded.")
         print(f"{color.yellow}Verifying the file hash match{color.reset}")
         file_hash = r['data']['hash']
-        print(f"server file hash : {color.blue} {file_hash}{color.reset}")
-        print(f"local file hash  : {color.cyan} {local_file_hash}{color.reset}")
+
+        hash_print_info = ""
+        if tmp:
+            hash_print_info = f"{color.yellow}Ziped hash{color.reset}"
+        print(f"server file hash : {color.blue} {file_hash}{color.reset} {hash_print_info}")
+        print(f"local file hash  : {color.cyan} {local_file_hash}{color.reset} {hash_print_info}")
 
         if local_file_hash == file_hash:
             print(f'\tFile hash match successfully {color.green}verified{color.reset}.')
@@ -142,7 +203,8 @@ def upload(username,token,path):
     else:
         print(r['message'])
 
-
+    if tmp:
+        os.remove(file_path)
 
 
     # print(r.json())
@@ -163,7 +225,11 @@ def download(username, token, path):
             print(f'{color.red}download cancel by user.{color.reset}')
             return
     else:
-
+        ziped = info['data']['ziped']
+        ziped_info = ""
+        if ziped :
+            ziped_info = f"[{color.yellow}ZIP{color.reset}] File ziped on the server"
+        print(ziped_info)
         file_hash = info['data']['hash']
         print(f"{color.cyan}{path}{color.reset} hash : {file_hash}")
         if info['data']['exsist'] == False:
@@ -184,26 +250,34 @@ def download(username, token, path):
     if response.status_code == 200:
         total_size = int(response.headers.get('content-length', 0))
         bytes_downloaded = 0
+        if ziped:
+            temp_dir = tempfile.mkdtemp()
+            org_path = path
+            path = os.path.join(temp_dir, path)
 
-
-        with open(path, 'wb') as f:
+        with open(path, 'wb') as f: # TODO check if tmp = true (ziped by our) unzip and next get hash and save First in temp file next unzip and save in regular path
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
                     bytes_downloaded += len(chunk)
                     progressbar(bytes_downloaded,total_size,"\t",mode="down")
 
-    
+        if ziped:
+            print(f"[{color.cyan}INFO{color.reset}] extracting zip...")
+            with zipfile.ZipFile(path, 'r') as zip_ref:
+                zip_ref.extractall('.')
+            path = org_path
 
-        print(f"file save  as {path}")
-        print(f"{color.yellow}Verifying the file hash match{color.reset}")
+
+        print(f"[{color.cyan}INFO{color.reset}] file save  as {path}")
+        print(f"[{color.cyan}INFO{color.reset}]{color.yellow} Verifying the file hash match{color.reset}")
         save_file_hash = get_file_hash(path)
         if file_hash == None:
-            print(f"{color.yellow}WARNING{color.reset} Fail to get hash file from server")
+            print(f"[{color.yellow}WARNING{color.reset}] Fail to get hash file from server")
             return
 
         print(f"server file hash : {color.blue} {file_hash}{color.reset}")
-        print(f"local file hash  : {color.cyan} {file_hash}{color.reset}")
+        print(f"local file hash  : {color.cyan} {save_file_hash}{color.reset}")
 
         if save_file_hash == file_hash:
             print(f'\tFile hash match successfully {color.green}verified{color.reset}.')
@@ -246,7 +320,11 @@ def get_(path):
             return
     else:
         if info != True:
-
+            ziped = info['data']['ziped']
+            ziped_info = ""
+            if ziped :
+                ziped_info = f"[{color.yellow}ZIP{color.reset}] File ziped on the server"
+            print(ziped_info)
             if info['data']['exsist'] == False:
                 print(f"{color.yellow}404{color.reset} {path}{color.red} not exsist{color.reset}.")
                 return
@@ -276,6 +354,13 @@ def get_(path):
         bytes_downloaded = 0
 
 
+
+        if ziped:
+            temp_dir = tempfile.mkdtemp()
+            org_path = path
+            path = os.path.join(temp_dir, path)
+
+
         with open(path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
@@ -283,10 +368,17 @@ def get_(path):
                     bytes_downloaded += len(chunk)
                     progressbar(bytes_downloaded,total_size,"\t",mode="down")
 
-    
+        if ziped:
+            print(f"[{color.cyan}INFO{color.reset}] extracting zip...")
+            with zipfile.ZipFile(path, 'r') as zip_ref:
+                zip_ref.extractall('.')
+            path = org_path
 
-        print(f"file save as {path}")
-        print(f"{color.yellow}Verifying the file hash match{color.reset}")
+
+            
+
+        print(f"[{color.cyan}INFO{color.reset}] file save as {path}")
+        print(f"[{color.cyan}INFO{color.reset}] {color.yellow}Verifying the file hash match{color.reset}")
         save_file_hash = get_file_hash(path)
         if file_hash == None:
             print(f"{color.yellow}WARNING{color.reset} Fail to get hash file from server")
@@ -296,9 +388,9 @@ def get_(path):
         print(f"local file hash  : {color.cyan} {file_hash}{color.reset}")
 
         if save_file_hash == file_hash:
-            print(f'\tFile hash match successfully {color.green}verified{color.reset}.')
+            print(f'\t[{color.cyan}INFO{color.reset}] File hash match successfully {color.green}verified{color.reset}.')
         else:
-            print(f"\t{color.red}WARNING{color.reset} File hash verification {color.red}failed{color.reset}.")
+            print(f"\t[{color.red}WARNING{color.reset}] File hash verification {color.red}failed{color.reset}.")
 
 
 
@@ -410,6 +502,12 @@ def main():
             return
 
         if args.f == False:
+
+            if os.path.exists(option) == False:
+                print(f"{option} not {color.red}exists{color.reset} to upload")
+                return
+
+
             file_hash = get_file_hash(option)
             x = file_info(usr,token,file_hash,mode='hash')
             if x['success'] == False:
@@ -433,9 +531,11 @@ def main():
         if r['success'] == True:
             if r['data']['exsist'] == True:
                 if args.f == False:
-
-                    print(f"this file allready exsist. use {color.cyan}-f{color.reset} to replace")
-                    print(f"{color.red}Upload cancel becuse file exsist on the server{color.reset}")
+                    print(f"this file-name allready exsist. use {color.cyan}-f{color.reset} to replace")
+                    print(f"{color.red}Upload cancel becuse file-name exsist on the server{color.reset}")
+                    print(f'\t{color.yellow}INFO{color.reset}')
+                    print(f'\tThis error can be happend becuse')
+                    print(f"\t{color.cyan}None-media{color.reset} files will send when {color.yellow}ziped{color.reset} and save on server as a zip file \n\tthats mean same {color.magenta}file-name{color.reset} whit diffrent extension cant be save on server whitout replace\n\tPlease change file-name to {color.green}save{color.reset} it on server whitout replace whit old-one.")
                     return
                 
         else:
@@ -497,13 +597,22 @@ def main():
                     white_space_time = ((formatted_dt))
 
                     start_color = color.green
+                    hash_color = color.yellow
+
                     if i[1] == 0:
                         start_color = color.yellow
+                    if i[4] != None:
+                        start_color = color.magenta
+                        hash_color = color.magenta
+
+
+
+
                     file_hash = ""
                     if args.i:
                         file_hash = i[3] + "   "
 
-                    print(f"{start_color}*{color.reset} {white_space_name} {color.yellow}{white_space_time}  {color.yellow}{file_hash}{color.reset}{color.cyan}{format_size(i[1])}{color.reset} ")
+                    print(f"{start_color}*{color.reset} {white_space_name} {color.yellow}{white_space_time}  {hash_color}{file_hash}{color.reset}{color.cyan}{format_size(i[1])}{color.reset} ")
             else:
                 print(f"{color.red}ERROR{color.reset} Fail to get files info.")
 

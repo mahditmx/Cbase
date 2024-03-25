@@ -56,7 +56,7 @@ def get_file_size(file_path):
         print("Error: Unable to get file size.")
         return None
 def format_time(stamptime):
-    timestamp = datetime.fromtimestamp(1710748888.0903776)
+    timestamp = datetime.fromtimestamp(stamptime)
     formatted_timestamp = timestamp.strftime("%b %d %H:%M")
     return formatted_timestamp
 
