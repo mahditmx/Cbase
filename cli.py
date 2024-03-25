@@ -14,14 +14,14 @@ import zipfile
 
 
 
-URL = "http://127.0.0.1:5000/api"
-# URL = "https://cliserver.pythonanywhere.com/api"
+# URL = "http://127.0.0.1:5000/api"
+URL = "https://cliserver.pythonanywhere.com/api"
 
 
 
 
 
-BUILD = 19
+BUILD = 18
 
 import requests
 
@@ -435,8 +435,9 @@ def check_for_update(startup = False):
     if data['build'] > BUILD:
         print(f"{color.bold_cyan}A new update avalivable{color.reset}")
         print(f"{color.yellow}update description{color.reset} : {update_des}")
-        print(f"get new update by running : {color.magenta}cpipe get {get_id}{color.reset} and {color.cyan}install{color.reset} the downloaded file")
+        print(f"get new update by running : {color.magenta}cbase get {get_id}{color.reset} and {color.cyan}install{color.reset} the downloaded file")
         print(f"or download manual from {color.red}http://cliserver.pythonanywhere.com/downloads{color.reset}")
+        return data['important']
 
     else:
         if startup == False:
@@ -444,18 +445,51 @@ def check_for_update(startup = False):
         else:
             print()
 
+
+
+def auto_check_update():
+    
+
+    home_directory = os.path.expanduser("~")
+
+    config_directory = os.path.join(home_directory, '.config', 'cbase')
+    json_file_path = os.path.join(config_directory, 'usr.json')
+    if not os.path.exists(config_directory):
+        os.mkdir(config_directory)
+        with open(json_file_path , "w+") as f:
+            f.write("{}")
+
+
+
+    json_usr = Zjson()
+    json_usr.connectFile(json_file_path)
+
+
+    conf_usr_data = json_usr.read()
+    if "lst_run" not in conf_usr_data:
+        conf_usr_data['lst_run'] = time.time()
+    
+        json_usr.append(conf_usr_data)
+
+        return
+    
+    lst_run = conf_usr_data['lst_run'] 
+    if time.time() - lst_run > 7200:
+        print(f'[{color.green}UPDATE{color.reset}] checking for update...')
+        conf_usr_data['lst_run'] = time.time()
+        json_usr.append(conf_usr_data)
+
+        important = check_for_update()
+        return important
+
+
+
 def main():
 
     home_directory = os.path.expanduser("~")
 
-    config_directory = os.path.join(home_directory, '.config', 'cpipe')
+    config_directory = os.path.join(home_directory, '.config', 'cbase')
     json_file_path = os.path.join(config_directory, 'usr.json')
-    if not os.path.exists(config_directory):
-        os.mkdir(config_directory)
-        
-
-        with open(json_file_path , "w+") as f:
-            f.write("{}")
 
     parser = argparse.ArgumentParser(description='Uploader CLI app')
 
@@ -743,6 +777,9 @@ def main():
 
 if __name__ == '__main__':
     # check_for_update(startup = True)
+    important = auto_check_update()
+    if important : 
+        exit()
 
     main()   
     show_cursor()
