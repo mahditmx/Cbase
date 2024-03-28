@@ -11,7 +11,7 @@ import hashlib
 import magic
 import tempfile
 import zipfile
-
+from url_downloads import *
 
 
 # URL = "http://127.0.0.1:5000/api"
@@ -304,7 +304,7 @@ def download(username, token, path):
 
 
 
-def get_(path):
+def get_(path,save_as='.'):
     url = URL + "/get"
     data = {"filename": path}
 
@@ -371,7 +371,7 @@ def get_(path):
         if ziped:
             print(f"[{color.cyan}INFO{color.reset}] extracting zip...")
             with zipfile.ZipFile(path, 'r') as zip_ref:
-                zip_ref.extractall('.')
+                zip_ref.extractall(save_as)
             path = org_path
 
 
@@ -500,6 +500,28 @@ def auto_check_update():
 
         important = check_for_update()
         return important
+def is_admin():
+
+    if os.geteuid() == 0:
+        return True
+    elif os.name == 'nt':
+        import ctypes
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except AttributeError:
+            return False
+    else:
+        return False
+
+
+def install_cbase():
+    if not is_admin():
+        print(f"Are you root ? try use {color.green}sudo{color.reset}") 
+        exit()
+    get_('cbase_linux_exe',save_as='/usr/bin/')
+
+
+
 
 
 
@@ -611,7 +633,47 @@ def main():
         if option == None:
             print("usage:")
             return
-        r = download(usr,token,option)
+        
+        if not Dis_Url(option):
+            r = download(usr,token,option)
+            return
+
+
+        print(f"geting {color.magenta}Url file{color.reset} info...")
+
+        info_file = Dget_file_info(option)
+        if info_file['content_length'] == None:
+            q = input(f"[{color.yellow}INFO{color.reset}] Fail to get file size, countine download ? [Y/n] ")
+            if q.strip().lower() not in ['y',"Y","yes","yup"]:
+                print(f'{color.red}remove cancel by user.{color.reset}')
+                return
+            size = "None"
+        else:
+            size = format_size(int(info_file['content_length']))
+
+
+        if info_file['file_name'] == None:
+            print(f"[{color.yellow}INFO{color.reset}] Fail to get file name")
+            name = input(f'Save file as: ')
+        else:
+            name = info_file['file_name']
+
+
+        q = input(f"are you shure to download {color.cyan}{name}{color.reset} ({size}) ? [Y/n] ")
+        if q.strip().lower() not in ['y',"Y","yes","yup"]:
+            print(f'{color.red}remove cancel by user.{color.reset}')
+            return
+
+        print(f"[{color.cyan}INFO{color.reset}] Downloading {color.magenta}{name}{color.reset}...")
+        Ddownload_file(option,name,progress_callback)
+
+
+
+
+
+
+
+
 
     if command in ["info",'ls']:
 
@@ -823,5 +885,5 @@ if __name__ == '__main__':
 
     main()   
     show_cursor()
-
+    # install_cbase()
 
