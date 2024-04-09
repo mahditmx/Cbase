@@ -12,7 +12,7 @@ import magic
 import tempfile
 import zipfile
 from url_downloads import *
-
+import signal
 
 # URL = "http://127.0.0.1:5000/api"
 URL = "https://cliserver.pythonanywhere.com/api"
@@ -21,8 +21,8 @@ URL = "https://cliserver.pythonanywhere.com/api"
 
 
 
-BUILD = 18
-
+BUILD = 25
+VERSION = "0.0.4"
 import requests
 
 
@@ -521,6 +521,52 @@ def install_cbase():
     get_('cbase_linux_exe',save_as='/usr/bin/')
 
 
+def download_command(option , json_usr):
+    usr_data  = json_usr.read()
+    if "username" not in usr_data:
+        print("please login/signup")
+    usr = usr_data['username']
+    token = usr_data['token']
+
+    if option == None:
+        print("usage:")
+        return
+    
+    if not Dis_Url(option):
+        r = download(usr,token,option)
+        return
+
+
+    print(f"geting {color.magenta}Url file{color.reset} info...")
+
+    info_file = Dget_file_info(option)
+    if info_file['content_length'] == None:
+        q = input(f"[{color.yellow}INFO{color.reset}] Fail to get file size, countine download ? [Y/n] ")
+        if q.strip().lower() not in ['y',"Y","yes","yup"]:
+            print(f'{color.red}remove cancel by user.{color.reset}')
+            return
+        size = "None"
+    else:
+        size = format_size(int(info_file['content_length']))
+
+
+    if info_file['file_name'] == None:
+        print(f"[{color.yellow}INFO{color.reset}] Fail to get file name")
+        name = input(f'Save file as: ')
+    else:
+        name = info_file['file_name']
+
+
+    q = input(f"are you shure to download {color.cyan}{name}{color.reset} ({size}) ? [Y/n] ")
+    if q.strip().lower() not in ['y',"Y","yes","yup"]:
+        print(f'{color.red}remove cancel by user.{color.reset}')
+        return
+
+    print(f"[{color.cyan}INFO{color.reset}] Downloading {color.magenta}{name}{color.reset}...")
+    Ddownload_file(option,name,progress_callback)
+
+
+
 
 
 
@@ -534,10 +580,14 @@ def main():
 
     parser = argparse.ArgumentParser(description='Uploader CLI app')
 
-    parser.add_argument('command', help='upload | download | create account | login')
+    parser.add_argument('command', help='upload | download | signup | login',nargs='?')
     parser.add_argument('option', help='option of command [path]', nargs='?', default=None)
     parser.add_argument('-f', action='store_true', help='Force command')
     parser.add_argument('-i', action='store_true', help='show more info')
+    parser.add_argument('-v', action='store_true', help='show version and build')
+    parser.add_argument('--get', action='store_true', help='Description of the --get flag')
+
+    
 
     args = parser.parse_args()
 
@@ -546,6 +596,10 @@ def main():
 
     json_usr = Zjson()
     json_usr.connectFile(json_file_path)
+
+    if command == None and not args.v:
+        parser.print_help()
+        return
 
 
     if command == "login":
@@ -623,54 +677,8 @@ def main():
 
 
     if command == "download":
-
-        usr_data  = json_usr.read()
-        if "username" not in usr_data:
-            print("please login/signup")
-        usr = usr_data['username']
-        token = usr_data['token']
-
-        if option == None:
-            print("usage:")
-            return
-        
-        if not Dis_Url(option):
-            r = download(usr,token,option)
-            return
-
-
-        print(f"geting {color.magenta}Url file{color.reset} info...")
-
-        info_file = Dget_file_info(option)
-        if info_file['content_length'] == None:
-            q = input(f"[{color.yellow}INFO{color.reset}] Fail to get file size, countine download ? [Y/n] ")
-            if q.strip().lower() not in ['y',"Y","yes","yup"]:
-                print(f'{color.red}remove cancel by user.{color.reset}')
-                return
-            size = "None"
-        else:
-            size = format_size(int(info_file['content_length']))
-
-
-        if info_file['file_name'] == None:
-            print(f"[{color.yellow}INFO{color.reset}] Fail to get file name")
-            name = input(f'Save file as: ')
-        else:
-            name = info_file['file_name']
-
-
-        q = input(f"are you shure to download {color.cyan}{name}{color.reset} ({size}) ? [Y/n] ")
-        if q.strip().lower() not in ['y',"Y","yes","yup"]:
-            print(f'{color.red}remove cancel by user.{color.reset}')
-            return
-
-        print(f"[{color.cyan}INFO{color.reset}] Downloading {color.magenta}{name}{color.reset}...")
-        Ddownload_file(option,name,progress_callback)
-
-
-
-
-
+        download_command(option, json_usr)
+        return
 
 
 
@@ -686,7 +694,67 @@ def main():
 
 
         if option == None:
-            info = file_info(usr,token,'','all')
+            if args.get: # --get was mean | INFO : get all public indexed things in cbase server  
+                print(f"List of all {color.bold_magenta}public{color.reset} indexed file")
+                info = file_info(usr,token,'','get_ls')
+                
+
+                largest_get_name = 5
+                largest_get_file_name = 5
+                largest_get_file_size = 5
+
+                for i in info['data']:
+                    if info['data'][i] == 404:
+                        continue
+                    leght = len(i)
+                    leght_filename = len(info['data'][i]['info'][3])
+                    leght_size = len(format_size(info['data'][i]['info'][1]))
+
+
+                    if leght > largest_get_name:
+                        largest_get_name = leght
+                    if leght_filename > largest_get_file_name:
+                        largest_get_file_name = leght_filename
+
+                    if leght_size > largest_get_file_size:
+                        largest_get_file_size = leght_size
+
+
+                for i in info['data']:
+                    if info['data'][i] == 404:
+                        # print("404") # TODO : Name {color.red}info not found{color.red}
+                        continue
+                    
+
+                    # print(info['data'][i])
+                    hash_info = ""
+                    if args.i:
+                        hash_info = info['data'][i]['hash']
+
+                    req_get_name_space = ' ' * (largest_get_name - len(i) + 3) 
+                    req_get_file_name_space = ' ' * (largest_get_file_name - len(info['data'][i]['info'][3]) + 3)
+                    req_get_file_size_space = ' ' * (largest_get_file_size - len(format_size(info['data'][i]['info'][1])) + 3)
+
+                    Line = f"""{color.green}#{color.reset} {i}{req_get_name_space}{color.bold_yellow}{info['data'][i]['info'][3]}{color.reset}{req_get_file_name_space}{color.magenta}{format_size(info['data'][i]['info'][1])}{req_get_file_size_space}{color.cyan}{format_time(info['data'][i]['info'][2])}{color.reset}  {color.yellow}{hash_info}{color.reset}                           """
+
+                    print(Line)
+
+
+
+
+                return
+
+
+
+
+
+
+
+
+
+
+            else:
+                info = file_info(usr,token,'','all')
 
 
 
@@ -727,7 +795,6 @@ def main():
                     if args.i:
                         file_hash = i[3] + "   "
 
-                    print(f"{start_color}*{color.reset} {white_space_name} {color.yellow}{white_space_time}  {hash_color}{file_hash}{color.reset}{color.cyan}{format_size(i[1])}{color.reset} ")
             else:
                 print(f"{color.red}ERROR{color.reset} Fail to get files info.")
 
@@ -878,12 +945,57 @@ def main():
             print(r['message'])
 
 
+            
+    if command in ['cat']:
+        download_command(option,json_usr)
+        return
+
+
+
+    if args.v:
+        print(f"Cbase {VERSION}:{BUILD}")
+        return
+
+
+    print(f"{command} was not found. Use {color.cyan}-h{color.reset} or run \n{color.green}${color.reset} {color.reset}cbase{color.reset} get help\nto get help")
+
+
+
+
+
+
+def signal_handler(sig, frame):
+    # Define the signal handler function
+    print("\nCtrl+C detected. Are you sure you want to exit? (y/n)")
+    response = input().strip().lower()
+    if response == 'y':
+        print("Exiting...")
+        exit(0)
+    else:
+        print("Resuming...")
+
+# Set the signal handler for SIGINT (Ctrl+C)
+signal.signal(signal.SIGINT, signal_handler)
+
+
 if __name__ == '__main__':
     important = auto_check_update()
     if important : 
         exit()
+    
 
-    main()   
+    try:
+        main()
+
+    except KeyboardInterrupt:
+        print('\nCtrl+C detected. Are you shure want to exit? [y/n]')
+        q = input().strip().lower()
+        if q in ['y','yes','yup']:
+            print('Exiting...')
+            exit(0)
+        else:
+            print('Resuming...')
+
     show_cursor()
     # install_cbase()
 

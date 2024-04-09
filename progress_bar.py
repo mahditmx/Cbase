@@ -61,7 +61,7 @@ def format_time(stamptime):
     return formatted_timestamp
 
 
-def format_size(size_bytes,show_unit=True):
+def format_size(size_bytes,show_unit=True,force_unit = None):
     """
     Convert bytes to the appropriate unit (KB, MB, GB, etc.).
     
@@ -73,12 +73,41 @@ def format_size(size_bytes,show_unit=True):
     """
     units = ['bytes', 'KB', 'MB', 'GB', 'TB']
     index = 0
+    if force_unit:
+        if force_unit in units:
+            index = units.index(force_unit) 
+            if index != 0:
+                size_bytes = size_bytes / (1024.0 ** index)
+
+            if show_unit:
+                return f"{size_bytes:.2f} {units[index]}"
+            return f"{size_bytes:.2f}"
+        
+        else:
+            return False
+
+
+
+
     while size_bytes >= 1024 and index < len(units) - 1:
         size_bytes /= 1024.0
         index += 1
     if show_unit:
         return f"{size_bytes:.2f} {units[index]}"
     return f"{size_bytes:.2f}"
+
+
+def get_best_format(byte):
+    units = ['bytes', 'KB', 'MB', 'GB', 'TB']
+    index = 0
+    while byte >= 1024 and index < len(units) - 1:
+        byte /= 1024.0
+        index += 1
+    return units[index]
+
+
+
+
 
 
 
