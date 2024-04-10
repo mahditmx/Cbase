@@ -755,52 +755,47 @@ def main():
 
             else:
                 info = file_info(usr,token,'','all')
+                if info['success'] == True:
+                    files_list = info['data']['ls']
 
+                    biggest_len_name = 0
+                    biggest_len_time = 0
 
+                    for i in files_list:
+                        if len(i[0]) > biggest_len_name:
+                            biggest_len_name = len(i[0])
 
-            if info['success'] == True:
-                files_list = info['data']['ls']
-
-                biggest_len_name = 0
-                biggest_len_time = 0
-
-                for i in files_list:
-                    if len(i[0]) > biggest_len_name:
-                        biggest_len_name = len(i[0])
-
-                
-
-                for i in files_list:
-                    file_name_space = biggest_len_name+5 - len(i[0])
-                    white_space_name = i[0] + (" "*file_name_space)
                     
-                    dt_utc = datetime.fromtimestamp(i[2])
-                    formatted_dt = dt_utc.strftime('%b %d %H:%M')
 
-                    white_space_time = ((formatted_dt))
+                    for i in files_list:
+                        file_name_space = biggest_len_name+5 - len(i[0])
+                        white_space_name = i[0] + (" "*file_name_space)
+                        
+                        dt_utc = datetime.fromtimestamp(i[2])
+                        formatted_dt = dt_utc.strftime('%b %d %H:%M')
 
-                    start_color = color.green
-                    hash_color = color.yellow
+                        white_space_time = ((formatted_dt))
 
-                    if i[1] == 0:
-                        start_color = color.yellow
-                    if i[4] != None:
-                        start_color = color.magenta
-                        hash_color = color.magenta
+                        start_color = color.green
+                        hash_color = color.yellow
 
-
-
-
-                    file_hash = ""
-                    if args.i:
-                        file_hash = i[3] + "   "
-
-            else:
-                print(f"{color.red}ERROR{color.reset} Fail to get files info.")
+                        if i[1] == 0:
+                            start_color = color.yellow
+                        if i[4] != None:
+                            start_color = color.magenta
+                            hash_color = color.magenta
 
 
 
-            return
+
+                        file_hash = ""
+                        if args.i:
+                            file_hash = i[3] + "   "
+
+                        print(f"{start_color}*{color.reset} {white_space_name} {color.yellow}{white_space_time}  {hash_color}{file_hash}{color.reset}{color.cyan}{format_size(i[1])}{color.reset} ")
+                else:
+                    print(f"{color.red}ERROR{color.reset} Fail to get files info.")
+                return
 
 
 
