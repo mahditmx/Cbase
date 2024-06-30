@@ -630,7 +630,7 @@ def main():
         r = login(usr,password)
         if r['success'] == True:
             json_usr.append({"username" : usr , "token" : r['data']['token']})
-
+        return
 
     if command == "signup":
         usr = input('username : ')
@@ -638,13 +638,14 @@ def main():
         r = create_account(usr,password)
         if r['success'] == True:
             json_usr.append({"username" : usr , "token" : r['data']['token']})
-
+        return
 
     if command == "upload":
 
         usr_data  = json_usr.read()
         if "username" not in usr_data:
             print("please login/signup")
+            return
         usr = usr_data['username']
         token = usr_data['token']
 
@@ -695,7 +696,7 @@ def main():
             return	
 
         r = upload(usr,token,option)
-
+        return
 
 
     if command == "download":
@@ -845,6 +846,7 @@ def main():
             print("usage:")
             return 
         get_(option)
+        return
 
 
     if command in ['publish','index','public'] :
@@ -873,15 +875,17 @@ def main():
         if r['success'] == False:
             if r['data']['per'] :
                 print(f"{color.cyan}HINT{color.reset}: use {color.magenta}-f{color.reset} to replace")
+                return
             else:
                 print(f"{color.red}WARNING{color.reset}: you dont have permission to replace")
-
-
+                return
+        return
+    
     if command in ["update" , 'check-for-update']:
         i = auto_check_update(mode='thetime')
         if not i :
             check_for_update() 
-
+        return
 
     if command in ['exsist']:
 
@@ -969,7 +973,9 @@ def main():
         r = rm_file(usr,token,option)
         if 'success' in r:
             print(r['message'])
-
+        else:
+            print(r)
+        return
 
             
     if command in ['cat']:
