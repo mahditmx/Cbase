@@ -169,7 +169,11 @@ def progressbar(byte, file_size, des,mode='up'):
     v_progress_bar = "━" * int(persent/2) + color.black + ("━" * (int(100/2) - int(persent/2))) +  color.reset
 
     display_persent = "{:.2f}".format(persent)
-    print(f"\r{des} {progressbar_color}{display_persent}{color.reset}{color.cyan} %{color.reset} {progressbar_color}{v_progress_bar}{color.reset} {color.blue}{format_size(byte, False)}{color.cyan}/{color.magenta}{format_size(file_size)}{color.reset} [{color.cyan}Speed{color.reset}: {format_size(download_speed / 1000)}/s]       ", end=end) 
+
+    best_unit = get_best_format(file_size)
+
+    print(f"\r{des} {progressbar_color}{display_persent}{color.reset}{color.cyan} %{color.reset} {progressbar_color}{v_progress_bar}{color.reset} {color.blue}{format_size(byte, False,force_unit=best_unit)}{color.cyan}/{color.magenta}{format_size(file_size)}{color.reset} [{color.cyan}Speed{color.reset}: {format_size(download_speed / 1000)}/s]       ", end=end) 
 
 
-
+# total , used , free = 6389425504256, 3976736014336, 2090603642880
+# print(f"total: {format_size(total)} , used: {color.black}{format_size(used)}{color.reset}, free: {color.green}{format_size(free)}{color.reset}")

@@ -225,6 +225,9 @@ def download(username, token, path):
             print(f'{color.red}download cancel by user.{color.reset}')
             return
     else:
+        if info['data']['exsist'] == False:
+            print(f"[{color.red}404{color.reset}] {color.magenta}{path}{color.reset} not exsist on your cloud.")
+            return
         ziped = info['data']['ziped']
         ziped_info = ""
         if ziped :
@@ -306,7 +309,7 @@ def download(username, token, path):
 
 def get_(path,save_as='.'):
     url = URL + "/get"
-    data = {"filename": path}
+    data = {"filename": path,"pwd":False}
 
     print(f"geting {color.magenta}{path}{color.reset} info...")
 
@@ -320,14 +323,18 @@ def get_(path,save_as='.'):
             return
     else:
         if info != True:
+            if info['data']['exsist'] == False:
+                print(f"[{color.red}404{color.reset}] {color.magenta}{path}{color.reset} not exsist on the server.")
+                return
             ziped = info['data']['ziped']
             ziped_info = ""
             if ziped :
                 ziped_info = f"[{color.yellow}ZIP{color.reset}] File ziped on the server"
-            print(ziped_info)
             if info['data']['exsist'] == False:
                 print(f"{color.yellow}404{color.reset} {path}{color.red} not exsist{color.reset}.")
                 return
+            print(ziped_info)
+            
             file_hash = info['data']['hash']
             print(f"{color.cyan}{info['data']['info'][0]}{color.reset} hash : {file_hash}")
             q = input(f"\tare you shure to download {color.cyan}{info['data']['info'][0]} {color.magenta}({format_size(info['data']['info'][1])}){color.reset} published by {color.bold_yellow}{info['data']['info'][3]}{color.reset} [Y/n] ? ")
@@ -341,14 +348,22 @@ def get_(path,save_as='.'):
                 print(f'{color.red}download cancel by user.{color.reset}')
                 return
 
+    lock = info['data']['lock']
 
-
+    if lock == True:
+        print("this file protected by password")
+        pwd = input("file password: ")
+        data['pwd'] = pwd
     print(f"downloading {color.magenta}{path}{color.reset}...")
-
 
     response = requests.get(url,data=data ,stream=True)
     set_defualt()
     hide_cursor()
+
+    if response.status_code == 403:
+        print("password is uncorrect.")
+        return
+
     if response.status_code == 200:
         total_size = int(response.headers.get('content-length', 0))
         bytes_downloaded = 0
@@ -411,10 +426,10 @@ def get_(path,save_as='.'):
 
 
 
-def index(username , token,path,f_name,force):
+def index(username , token,path,f_name,force,pwd):
     url = URL+"/pub"
 
-    data = {"username": username, 'token' : token , "file_name" : path , "f_name" : f_name , "force" : force}
+    data = {"username": username, 'token' : token , "file_name" : path , "f_name" : f_name , "force" : force,"pwd":pwd}
     headers = {'Content-Type': 'application/json'}
 
     r = requests.post(url , json=data, headers=headers)
@@ -466,7 +481,7 @@ def check_for_update(startup = False):
 
 
 
-def auto_check_update():
+def auto_check_update(mode='normal'):
     
 
     home_directory = os.path.expanduser("~")
@@ -494,12 +509,19 @@ def auto_check_update():
     
     lst_run = conf_usr_data['lst_run'] 
     if time.time() - lst_run > 7200:
+        if mode == 'thetime':
+            return True
+        
         print(f'[{color.green}UPDATE{color.reset}] checking for update...')
         conf_usr_data['lst_run'] = time.time()
         json_usr.append(conf_usr_data)
 
         important = check_for_update()
         return important
+    elif mode == 'thetime':
+        return False
+    
+    
 def is_admin():
 
     if os.geteuid() == 0:
@@ -677,6 +699,9 @@ def main():
 
 
     if command == "download":
+        if args.get:
+            get_(option)
+            return
         download_command(option, json_usr)
         return
 
@@ -822,7 +847,7 @@ def main():
         get_(option)
 
 
-    if command in ['publish','index'] :
+    if command in ['publish','index','public'] :
         if option == None:
             print("usage:")
             return 
@@ -836,10 +861,14 @@ def main():
 
 
         f_name = input("friendly name : ")
+        f_pwd = input("password (option) - leave blank for public : ")
+        if f_pwd.rstrip() == "":
+            f_pwd  = False
         force = False
         if args.f :
             force = True
-        r = index(usr,token,option,f_name,force)
+        print(f_pwd)
+        r = index(usr,token,option,f_name,force,f_pwd)
         print(f"{color.yellow}server replay {color.reset}: {r['message']}")
         if r['success'] == False:
             if r['data']['per'] :
@@ -849,7 +878,9 @@ def main():
 
 
     if command in ["update" , 'check-for-update']:
-        check_for_update() 
+        i = auto_check_update(mode='thetime')
+        if not i :
+            check_for_update() 
 
 
     if command in ['exsist']:
