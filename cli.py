@@ -21,8 +21,8 @@ URL = "https://cliserver.pythonanywhere.com/api"
 
 
 
-BUILD = 25
-VERSION = "0.0.4"
+BUILD = 26
+VERSION = "0.0.5"
 import requests
 
 
